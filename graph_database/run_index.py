@@ -25,7 +25,20 @@ def get_py_files(directory):
                 py_files.append(os.path.join(root, file))
     return py_files
 
-def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db: GraphDatabaseHandler):
+def get_relative_path_folders(root_path, file_path):
+    # Ensure both paths are absolute
+    root_path = os.path.abspath(root_path)
+    file_path = os.path.abspath(file_path)
+
+    # Get the relative path from the root_path
+    relative_path = os.path.relpath(file_path, root_path)
+
+    # Split the relative path into parts and exclude the file name
+    folders = relative_path.split(os.sep)[:-1]
+
+    return folders
+
+def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db: GraphDatabaseHandler, rootPath):
     # graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
     #                                 user="neo4j",
     #                                 password="12345678",
@@ -35,11 +48,10 @@ def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db:
     astVisitorClient = myClient.AstVisitorClient(graph_db)
     # astVisitorClient = indexer_sh.AstVisitorClient()
 
-    indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False)
-    # shallow_indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False)
+    indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
+    # shallow_indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
 
-
-def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', srctrl_clear=False):
+def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='',srctrl_clear=False):
     workingDirectory = os.getcwd()
     unique_id = uuid.uuid4()
     print(sourceFilePath)
@@ -53,20 +65,23 @@ def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', srctrl_clear=F
         print('ERROR: ' + srctrl.getLastError() + sourceFilePath)
 
     srctrl.beginTransaction()
-    indexSourceFile(sourceFilePath, None, workingDirectory, graph_db)
+    indexSourceFile(sourceFilePath, None, workingDirectory, graph_db, root_path)
     srctrl.commitTransaction()
 
-    if not srctrl.close():
-        print('ERROR: ' + srctrl.getLastError() + sourceFilePath)
+    # if not srctrl.close():
+    #     print('ERROR: ' + srctrl.getLastError() + sourceFilePath)
 
     if os.path.exists(databaseFilePath):
         os.remove(databaseFilePath)
 
 def run():
+
     # repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
-    # repo_path = r'/home/lanbo/repo/test_repo'
+    repo_path = r'/home/lanbo/repo/test_repo'
     task_id = 'test_repo_full1'
-    repo_path = ''
+
+    root_path = r'/home/lanbo/repo/test_repo'
+    # repo_path = ''
     # task_id = 'test_sh'
     parser = argparse.ArgumentParser(description='Python source code indexer that generates a Sourcetrail compatible database.')
     parser.add_argument('--repo_path', help='path to the source file to index', default=repo_path, type=str, required=False)
@@ -74,13 +89,15 @@ def run():
     args = parser.parse_args()
     if args.repo_path:
         file_list = get_py_files(args.repo_path)
+        root_path = args.repo_path
     else:
         file_list = [
             # r"/home/lanbo/repo/sklearn/metrics/cluster/__init__.py",
             r"/home/lanbo/repo/test_repo/folder1/file1.py",
-            r"/home/lanbo/repo/test_repo/folder1/file2.py",
+            # r"/home/lanbo/repo/test_repo/folder1/file2.py",
+            # r"/home/lanbo/repo/test_repo/folder2/file3.py",
             # r"/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/generator.py"
-            r"/home/lanbo/repo/test_repo/main.py"
+            # r"/home/lanbo/repo/test_repo/main.py"
             # r"/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/example_alt_generator.py"
         ]
     task_id = args.task_id
@@ -94,19 +111,19 @@ def run():
     # 记录开始时间
     start_time = time.time()
     # return
-    for file in file_list:
-        run_single(graph_db, file)
+    # for file in file_list:
+    #     run_single(graph_db, file, root_path=root_path)
 
     # 使用 ThreadPoolExecutor 并行运行 run_single
-    # with ThreadPoolExecutor(max_workers=6) as executor:
-    #     future_to_file = {executor.submit(run_single, graph_db, file_path): file_path for file_path in file_list}
-    #     for future in as_completed(future_to_file):
-    #         file_path = future_to_file[future]
-    #         try:
-    #             future.result()
-    #             print('Successfully processed {}'.format(file_path))
-    #         except Exception as exc:
-    #             print('{} generated an exception: {}'.format(file_path, exc))
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        future_to_file = {executor.submit(run_single, graph_db, file_path, root_path): file_path for file_path in file_list}
+        for future in as_completed(future_to_file):
+            file_path = future_to_file[future]
+            try:
+                future.result()
+                print('Successfully processed {}'.format(file_path))
+            except Exception as exc:
+                print('{} generated an exception: {}'.format(file_path, exc))
 
     # 记录结束时间
     end_time = time.time()

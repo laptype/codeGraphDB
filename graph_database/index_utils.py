@@ -59,15 +59,19 @@ class SourceRange:
 class NameHierarchy():
 
 	unsolvedSymbolName = 'unsolved symbol' # this name should not collide with normal symbol name, because they cannot contain space characters
+	base_element_list = []
 
-	def __init__(self, nameElement, delimiter):
+
+	def __init__(self, nameElement, delimiter, copy=False):
+		# if not copy:
+		# 	self.nameElements = [NameElement(name=pre_module) for pre_module in self.base_element_list]
 		self.nameElements = []
 		if nameElement is not None:
 			self.nameElements.append(nameElement)
 		self.delimiter = delimiter
 
 	def copy(self):
-		ret = NameHierarchy(None, self.delimiter)
+		ret = NameHierarchy(None, self.delimiter, copy=True)
 		for nameElement in self.nameElements:
 			ret.nameElements.append(NameElement(nameElement.name, nameElement.prefix, nameElement.postfix))
 		return ret
@@ -78,6 +82,8 @@ class NameHierarchy():
 
 	def getDisplayString(self):
 		displayString = ''
+		aaa = self.nameElements[-1].name
+		bbb = aaa
 		isFirst = True
 		for nameElement in self.nameElements:
 			if not isFirst:

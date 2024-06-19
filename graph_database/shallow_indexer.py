@@ -30,7 +30,7 @@ def indexSourceCode(sourceCode, workingDirectory, astVisitorClient, isVerbose, s
 	astVisitor.traverseNode(moduleNode)
 
 
-def indexSourceFile(sourceFilePath, environmentDirectoryPath, workingDirectory, astVisitorClient, isVerbose):
+def indexSourceFile(sourceFilePath, environmentDirectoryPath, workingDirectory, astVisitorClient, isVerbose, rootPath):
 
 	if isVerbose:
 		print('INFO: Indexing source file "' + sourceFilePath + '".')
@@ -46,7 +46,7 @@ def indexSourceFile(sourceFilePath, environmentDirectoryPath, workingDirectory, 
 	if (isVerbose):
 		astVisitor = VerboseAstVisitor(astVisitorClient, sourceFilePath)
 	else:
-		astVisitor = AstVisitor(astVisitorClient, sourceFilePath)
+		astVisitor = AstVisitor(astVisitorClient, sourceFilePath, rootPath=rootPath)
 
 	astVisitor.traverseNode(moduleNode)
 
@@ -77,7 +77,7 @@ class ReferenceKindInfo:
 
 class AstVisitor:
 
-	def __init__(self, client, sourceFilePath, sourceFileContent = None, sysPath = None):
+	def __init__(self, client, sourceFilePath, sourceFileContent = None, sysPath = None, rootPath=None):
 
 		self.client = client
 
@@ -88,9 +88,12 @@ class AstVisitor:
 		self.sourceFileName = os.path.split(self.sourceFilePath)[-1]
 		self.sourceFileContent = sourceFileContent
 
-		packageRootPath = os.path.dirname(self.sourceFilePath)
-		while os.path.exists(os.path.join(packageRootPath, '__init__.py')):
-			packageRootPath =  os.path.dirname(packageRootPath)
+		if rootPath is None:
+			packageRootPath = os.path.dirname(self.sourceFilePath)
+			while os.path.exists(os.path.join(packageRootPath, '__init__.py')):
+				packageRootPath =  os.path.dirname(packageRootPath)
+		else:
+			packageRootPath = rootPath
 		self.sysPath = [packageRootPath]
 
 		if sysPath is not None:

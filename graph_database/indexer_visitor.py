@@ -5,7 +5,7 @@ import sourcetraildb as srctrl
 
 class AstVisitor:
 
-    def __init__(self, client, evaluator, sourceFilePath, sourceFileContent=None, sysPath=None):
+    def __init__(self, client, evaluator, sourceFilePath, sourceFileContent=None, sysPath=None, rootPath=None):
 
         self.client = client
         self.environment = evaluator.environment
@@ -17,9 +17,12 @@ class AstVisitor:
         self.sourceFileName = os.path.split(self.sourceFilePath)[-1]
         self.sourceFileContent = sourceFileContent
 
-        packageRootPath = os.path.dirname(self.sourceFilePath)
-        while os.path.exists(os.path.join(packageRootPath, '__init__.py')):
-            packageRootPath = os.path.dirname(packageRootPath)
+        if rootPath is None:
+            packageRootPath = os.path.dirname(self.sourceFilePath)
+            while os.path.exists(os.path.join(packageRootPath, '__init__.py')):
+                packageRootPath = os.path.dirname(packageRootPath)
+        else:
+            packageRootPath = rootPath
         self.sysPath = [packageRootPath]
 
         if sysPath is not None:

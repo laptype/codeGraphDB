@@ -98,7 +98,7 @@ def indexSourceCode(sourceCode, workingDirectory, astVisitorClient, isVerbose, e
 	astVisitor.traverseNode(module_node)
 
 
-def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, isVerbose):
+def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, isVerbose, rootPath):
 
 	if isVerbose:
 		print('INFO: Indexing source file "' + sourceFilePath + '".')
@@ -135,7 +135,7 @@ def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisito
 	if (isVerbose):
 		astVisitor = VerboseAstVisitor(astVisitorClient, evaluator, sourceFilePath)
 	else:
-		astVisitor = AstVisitor(astVisitorClient, evaluator, sourceFilePath)
+		astVisitor = AstVisitor(astVisitorClient, evaluator, sourceFilePath, rootPath=rootPath)
 
 	astVisitor.traverseNode(module_node)
 
