@@ -116,6 +116,8 @@ class AstVisitorClient:
                 parent_class = self.get_parent_class(full_name)
                 if parent_class:
                     data["class"] = parent_class
+                    if self.symbol_data[parent_class]['parent_name'] == self.this_module:
+                        data['file_path'] = self.this_file_path
                     if kind == 'FUNCTION':
                         kind = 'METHOD'
                         self.symbol_data[full_name]['kind'] = kind

@@ -19,22 +19,39 @@ class GraphDatabaseHandler:
 
         self.task_id = task_id
 
-    def _match_node(self, full_name):
+    def _match_node(self, id=''):
         if self.task_id:
-            existing_node = self.node_matcher.match(self.task_id, full_name=full_name).first()
+            existing_node = self.node_matcher.match(self.task_id, id=id).first()
         else:
-            existing_node = self.node_matcher.match(full_name=full_name).first()
+            existing_node = self.node_matcher.match(id=id).first()
         return existing_node
 
-    def _create_node(self, label=None, full_name='', parms={}):
+    def _create_node(self, label=None, id='', parms={}):
         if label is None or label == '':
             label = self.none_label
         if self.task_id:
-            node = Node(self.task_id, label, full_name=full_name, **parms)
+            node = Node(self.task_id, label, id=id, **parms)
         else:
-            node = Node(label, full_name=full_name, **parms)
+            node = Node(label, id=id, **parms)
         self.graph.create(node)
         return node
+
+    # def _match_node(self, full_name):
+    #     if self.task_id:
+    #         existing_node = self.node_matcher.match(self.task_id, full_name=full_name).first()
+    #     else:
+    #         existing_node = self.node_matcher.match(full_name=full_name).first()
+    #     return existing_node
+    #
+    # def _create_node(self, label=None, full_name='', parms={}):
+    #     if label is None or label == '':
+    #         label = self.none_label
+    #     if self.task_id:
+    #         node = Node(self.task_id, label, full_name=full_name, **parms)
+    #     else:
+    #         node = Node(label, full_name=full_name, **parms)
+    #     self.graph.create(node)
+    #     return node
 
     def _update_node_label(self, full_name, label):
         existing_node = self._match_node(full_name)
@@ -141,9 +158,11 @@ if __name__ == '__main__':
     # RETURN m.name AS MethodName, m.signature AS MethodSignature, m.code AS MethodCode
     # """
     user_query = """
-    MATCH (c:CLASS)
+    MATCH (c:project_cc_python/102:CLASS)
     RETURN c
     """
     # response = graph_db.get_cypher_response(user_query)
     # print(response)
-    graph_db.clear_task_data("project_cc_python/138")
+    # graph_db.clear_task_data("project_cc_python/138")
+    response = graph_db.execute_query(user_query)
+    print(response)

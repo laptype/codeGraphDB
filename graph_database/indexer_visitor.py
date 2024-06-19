@@ -201,7 +201,7 @@ class AstVisitor:
 
                 elif definition.type in ['class', 'function']:
                     (startLine, startColumn) = node.start_pos
-                    if definition.line == startLine and definition.column == startColumn:
+                    if definition.line == startLine and definition.column == startColumn and definition.module_path == self.sourceFilePath:
                         # Early exit. We don't record references for locations of classes or functions that are definitions
                         return
 

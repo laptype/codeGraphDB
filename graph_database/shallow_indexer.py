@@ -40,6 +40,9 @@ def indexSourceFile(sourceFilePath, environmentDirectoryPath, workingDirectory, 
 		sourceCode=input.read()
 
 	moduleNode = parso.parse(sourceCode)
+
+	astVisitorClient.this_source_code_lines = sourceCode.split('\n')
+
 	if (isVerbose):
 		astVisitor = VerboseAstVisitor(astVisitorClient, sourceFilePath)
 	else:
@@ -109,6 +112,7 @@ class AstVisitor:
 
 		moduleNameHierarchy = self.getNameHierarchyFromModuleFilePath(self.sourceFilePath)
 		if moduleNameHierarchy is not None:
+			self.client.this_module = moduleNameHierarchy.getDisplayString()
 			moduleId = self.client.recordSymbol(moduleNameHierarchy)
 			self.client.recordSymbolDefinitionKind(moduleId, srctrl.DEFINITION_EXPLICIT)
 			self.client.recordSymbolKind(moduleId, srctrl.SYMBOL_MODULE)
@@ -362,6 +366,9 @@ class AstVisitor:
 			referenceKind = srctrl.REFERENCE_CALL
 
 		if node.is_definition():
+			if referenceKind == srctrl.REFERENCE_CALL:
+
+				pass
 			namedDefinitionParentNode = getParentWithTypeInList(node, ['classdef', 'funcdef'])
 			if namedDefinitionParentNode is not None:
 				if namedDefinitionParentNode.type in ['classdef']:
