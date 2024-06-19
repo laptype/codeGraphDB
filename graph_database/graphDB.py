@@ -1,6 +1,5 @@
 from py2neo import Graph, Node, NodeMatcher, Relationship, RelationshipMatcher
-import threading
-
+import fasteners
 class NoOpLock:
     def __enter__(self):
         pass
@@ -8,33 +7,31 @@ class NoOpLock:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
+class FileLock:
+    # 读写锁
+    def __init__(self, lockfile):
+        self.lockfile = lockfile
+        self.lock = fasteners.InterProcessLock(self.lockfile)
+        self.lock_acquired = False
+
+    def __enter__(self):
+        self.lock_acquired = self.lock.acquire(blocking=True)
+        if not self.lock_acquired:
+            raise RuntimeError("Unable to acquire the lock")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.lock_acquired:
+            self.lock.release()
+            self.lock_acquired = False
+
 class GraphDatabaseHandler:
-    def __init__(self, uri, user, password, database_name='neo4j', task_id='', use_lock=False):
+    def __init__(self, uri, user, password, database_name='neo4j', task_id='', use_lock=False, lockfile='neo4j.lock'):
         self.graph = Graph(uri, auth=(user, password), name=database_name)
         self.node_matcher = NodeMatcher(self.graph)
         self.rel_matcher = RelationshipMatcher(self.graph)
-        # 互斥锁
-        self.lock = threading.Lock() if use_lock else NoOpLock()
         self.none_label = 'none'
-
         self.task_id = task_id
-
-    # def _match_node(self, id=''):
-    #     if self.task_id:
-    #         existing_node = self.node_matcher.match(self.task_id, id=id).first()
-    #     else:
-    #         existing_node = self.node_matcher.match(id=id).first()
-    #     return existing_node
-    #
-    # def _create_node(self, label=None, id='', parms={}):
-    #     if label is None or label == '':
-    #         label = self.none_label
-    #     if self.task_id:
-    #         node = Node(self.task_id, label, id=id, **parms)
-    #     else:
-    #         node = Node(label, id=id, **parms)
-    #     self.graph.create(node)
-    #     return node
+        self.lock = FileLock(lockfile) if use_lock else NoOpLock()
 
     def _match_node(self, full_name):
         if self.task_id:
