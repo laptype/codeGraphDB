@@ -45,7 +45,7 @@ class AstVisitor:
         moduleNameHierarchy = self.getNameHierarchyFromModuleFilePath(self.sourceFilePath)
         if moduleNameHierarchy is not None:
             self.client.this_module = moduleNameHierarchy.getDisplayString()
-            moduleId = self.client.recordSymbol(moduleNameHierarchy)
+            moduleId = self.client.recordSymbol(moduleNameHierarchy, self.sourceFilePath)
             self.client.recordSymbolDefinitionKind(moduleId, srctrl.DEFINITION_EXPLICIT)
             self.client.recordSymbolKind(moduleId, srctrl.SYMBOL_MODULE)
             self.contextStack.append(ContextInfo(moduleId, moduleNameHierarchy.getDisplayString(), None))
@@ -93,7 +93,7 @@ class AstVisitor:
         if symbolNameHierarchy is None:
             symbolNameHierarchy = getNameHierarchyForUnsolvedSymbol()
 
-        symbolId = self.client.recordSymbol(symbolNameHierarchy)
+        symbolId = self.client.recordSymbol(symbolNameHierarchy, self.sourceFilePath)
         self.client.recordSymbolDefinitionKind(symbolId, srctrl.DEFINITION_EXPLICIT)
         self.client.recordSymbolKind(symbolId, srctrl.SYMBOL_CLASS)
         self.client.recordSymbolLocation(symbolId, getSourceRangeOfNode(nameNode))
@@ -113,7 +113,7 @@ class AstVisitor:
         if symbolNameHierarchy is None:
             symbolNameHierarchy = getNameHierarchyForUnsolvedSymbol()
 
-        symbolId = self.client.recordSymbol(symbolNameHierarchy)
+        symbolId = self.client.recordSymbol(symbolNameHierarchy, self.sourceFilePath)
         self.client.recordSymbolDefinitionKind(symbolId, srctrl.DEFINITION_EXPLICIT)
         self.client.recordSymbolKind(symbolId, srctrl.SYMBOL_FUNCTION)
         self.client.recordSymbolLocation(symbolId, getSourceRangeOfNode(nameNode))
@@ -127,7 +127,7 @@ class AstVisitor:
             functionNameHierarchy = self.getNameHierarchyOfNode(functionNameNode, self.sourceFilePath)
             if functionNameHierarchy is None:
                 return
-            functionSymbolId = self.client.recordSymbol(functionNameHierarchy)
+            functionSymbolId = self.client.recordSymbol(functionNameHierarchy, self.sourceFilePath)
 
             (startLine, startColumn) = functionNameNode.start_pos
             script = self.createScript(self.sourceFilePath)
@@ -144,7 +144,7 @@ class AstVisitor:
                 overriddenNameHierarchy = self.getNameHierarchyOfNode(overriddenNameNode, self.sourceFilePath)
                 if overriddenNameHierarchy is None:
                     continue
-                overriddenSymbolId = self.client.recordSymbol(overriddenNameHierarchy)
+                overriddenSymbolId = self.client.recordSymbol(overriddenNameHierarchy, self.sourceFilePath)
 
                 referenceId = self.client.recordReference(
                     functionSymbolId,
@@ -308,7 +308,7 @@ class AstVisitor:
     def recordInstanceReference(self, node, definition):
         nameHierarchy = self.getNameHierarchyFromFullNameOfDefinition(definition)
         if nameHierarchy is not None:
-            referencedSymbolId = self.client.recordSymbol(nameHierarchy)
+            referencedSymbolId = self.client.recordSymbol(nameHierarchy, node_path = definition.module_path)
             self.client.recordSymbolKind(referencedSymbolId, srctrl.SYMBOL_GLOBAL_VARIABLE)
 
             referenceKind = srctrl.REFERENCE_USAGE
@@ -327,13 +327,13 @@ class AstVisitor:
         return False
 
     def recordModuleReference(self, node, definition):
-        referencedNameHierarchy = self.getNameHierarchyFromModulePathOfDefinition(definition)
+        referencedNameHierarchy, module_path = self.getNameHierarchyFromModulePathOfDefinition(definition)
         if referencedNameHierarchy is None:
             referencedNameHierarchy = self.getNameHierarchyFromFullNameOfDefinition(definition)
         if referencedNameHierarchy is None:
             return False
 
-        referencedSymbolId = self.client.recordSymbol(referencedNameHierarchy)
+        referencedSymbolId = self.client.recordSymbol(referencedNameHierarchy, node_path=module_path)
 
         # Record symbol kind. If the used type is within indexed code, we already have this info. In any other case, this is valuable info!
         self.client.recordSymbolKind(referencedSymbolId, srctrl.SYMBOL_MODULE)
@@ -357,11 +357,11 @@ class AstVisitor:
         return True
 
     def recordClassReference(self, node, definition):
-        referencedNameHierarchy = self.getNameHierarchyOfClassOrFunctionDefinition(definition)
+        referencedNameHierarchy, node_path, tree_node = self.getNameHierarchyOfClassOrFunctionDefinition(definition)
         if referencedNameHierarchy is None:
             return False
 
-        referencedSymbolId = self.client.recordSymbol(referencedNameHierarchy)
+        referencedSymbolId = self.client.recordSymbol(referencedNameHierarchy, node_path=node_path, tree_node=tree_node)
 
         # Record symbol kind. If the used type is within indexed code, we already have this info. In any other case, this is valuable info!
         self.client.recordSymbolKind(referencedSymbolId, srctrl.SYMBOL_CLASS)
@@ -395,7 +395,7 @@ class AstVisitor:
             if referenceKind == srctrl.REFERENCE_TYPE_USAGE and isCallNode(node):
                 constructorNameHierarchy = referencedNameHierarchy.copy()
                 constructorNameHierarchy.nameElements.append(NameElement('__init__'))
-                constructorSymbolId = self.client.recordSymbol(constructorNameHierarchy)
+                constructorSymbolId = self.client.recordSymbol(constructorNameHierarchy, node_path=node_path, tree_node=tree_node)
                 self.client.recordSymbolKind(constructorSymbolId, srctrl.SYMBOL_METHOD)
                 callReferenceId = self.client.recordReference(
                     self.contextStack[-1].id,
@@ -407,11 +407,11 @@ class AstVisitor:
         return True
 
     def recordFunctionReference(self, node, definition):
-        referencedNameHierarchy = self.getNameHierarchyOfClassOrFunctionDefinition(definition)
+        referencedNameHierarchy, node_path, tree_node = self.getNameHierarchyOfClassOrFunctionDefinition(definition)
         if referencedNameHierarchy is None:
             return False
 
-        referencedSymbolId = self.client.recordSymbol(referencedNameHierarchy)
+        referencedSymbolId = self.client.recordSymbol(referencedNameHierarchy, node_path=node_path, tree_node=tree_node)
 
         # Record symbol kind. If the called function is within indexed code, we already have this info. In any other case, this is valuable info!
         self.client.recordSymbolKind(referencedSymbolId, srctrl.SYMBOL_FUNCTION)
@@ -503,7 +503,7 @@ class AstVisitor:
             if symbolNameHierarchy is None:
                 return False
 
-            symbolId = self.client.recordSymbol(symbolNameHierarchy)
+            symbolId = self.client.recordSymbol(symbolNameHierarchy, node_path=definitionModulePath)
 
             if symbolKind is not None:
                 self.client.recordSymbolKind(symbolId, symbolKind)
@@ -611,7 +611,7 @@ class AstVisitor:
         if nameHierarchy is not None:
             if nameHierarchy.nameElements[-1].name != definition.name:
                 nameHierarchy.nameElements.append(NameElement(definition.name))
-        return nameHierarchy
+        return nameHierarchy, definition.module_path
 
     def getNameHierarchyFromFullNameOfDefinition(self, definition):
         nameHierarchy = None
@@ -650,7 +650,7 @@ class AstVisitor:
                 else:
                     return None
 
-            return self.getNameHierarchyOfNode(definition._name.tree_name, definitionModulePath)
+            return self.getNameHierarchyOfNode(definition._name.tree_name, definitionModulePath), definitionModulePath, definition._name.tree_name
 
     def getDefinitionsOfNode(self, node, nodeSourceFilePath):
         try:

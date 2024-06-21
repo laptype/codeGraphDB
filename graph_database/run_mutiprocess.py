@@ -94,7 +94,8 @@ def run(repo_path=None, task_id='test', max_workers=8):
     print("Time taken:", int(elapsed_time), "seconds")
 
 if __name__ == "__main__":
-    repo_path = r'/home/lanbo/repo/test_repo'
+    # repo_path = r'/home/lanbo/repo/test_repo'
+    repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
     task_id = 'test_repo_full1'
 
     run(repo_path, task_id, max_workers=8)

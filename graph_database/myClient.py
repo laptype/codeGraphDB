@@ -1,3 +1,4 @@
+import codecs
 import sourcetraildb as srctrl
 import ast
 from graph_database.graphDB import GraphDatabaseHandler
@@ -50,6 +51,24 @@ class AstVisitorClient:
         extracted_code = '\n'.join(extracted_lines)
         return extracted_code
 
+    def extract_code_from_file(self, file_path, start_line, end_line, is_indent=False):
+        try:
+            with codecs.open(file_path, 'r', encoding='utf-8') as input:
+                sourceCode = input.read()
+            source_code_lines = sourceCode.split('\n')
+            extracted_lines = source_code_lines[start_line - 1:end_line]
+        except:
+            return ''
+        # 去除指定数量的缩进
+        if is_indent:
+            extracted_lines = source_code_lines[start_line-1:end_line-1]
+            first_line_indent = len(extracted_lines[0]) - len(extracted_lines[0].lstrip())
+
+            extracted_lines = [line[first_line_indent:] if len(line) > first_line_indent else '' for line in extracted_lines]
+
+        extracted_code = '\n'.join(extracted_lines)
+        return extracted_code
+
     def get_module_name(self, symbol):
         if symbol not in self.symbol_data.keys():
             return ''
@@ -65,7 +84,15 @@ class AstVisitorClient:
                 return parent_name
         return ''
 
-    def recordSymbol(self, nameHierarchy):
+    def get_import_scope_location(self, tree_node):
+        try:
+            start_pos = tree_node.parent.start_pos[0]
+            end_pos = tree_node.parent.end_pos[0]
+            return start_pos, end_pos
+        except:
+            return -1, -1
+
+    def recordSymbol(self, nameHierarchy, node_path='', tree_node=None):
 
         if nameHierarchy is not None:
             symbolId = srctrl.recordSymbol(nameHierarchy.serialize())
@@ -76,7 +103,18 @@ class AstVisitorClient:
             if name not in self.symbol_data.keys():
                 self.symbol_data[name] = {
                     "name": name,
+                    "path": node_path,
                     "kind": '',
+                    "parent_name": parent_name,
+                }
+            if tree_node and node_path:
+                start_line, end_line = self.get_import_scope_location(tree_node)
+                code = self.extract_code_from_file(node_path, start_line, end_line, is_indent=True)
+                self.symbol_data[name] = {
+                    "name": name,
+                    "path": node_path,
+                    "kind": '',
+                    "code": code,
                     "parent_name": parent_name,
                 }
             return symbolId
@@ -103,14 +141,19 @@ class AstVisitorClient:
                 })
             else:
                 self.graphDB.add_node(label='MODULE', full_name=full_name, parms={
-                    "name": full_name
+                    "name": full_name,
+                    "file_path": self.symbol_data[full_name]['path']
                 })
         elif kind in ['CLASS', 'FUNCTION', 'METHOD', 'GLOBAL_VARIABLE', 'FIELD']:
+
             data = {
-                "name": full_name.split('.')[-1]
+                "name": full_name.split('.')[-1],
+                "file_path": self.symbol_data[full_name]['path']
             }
             if self.symbol_data[full_name]['parent_name'] == self.this_module:
                 data['file_path'] = self.this_file_path
+            if 'code' in self.symbol_data[full_name].keys():
+                data['code'] = self.symbol_data[full_name]['code']
 
             if kind in ['FUNCTION', 'METHOD', 'GLOBAL_VARIABLE', 'FIELD']:
                 parent_class = self.get_parent_class(full_name)

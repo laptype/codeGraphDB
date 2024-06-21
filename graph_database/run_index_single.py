@@ -55,7 +55,7 @@ def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='',s
         os.remove(databaseFile1PrjPath)
 
 def run():
-    task_id = 'test_repo_full1'
+    task_id = 'test_0621'
     file_path = r'/home/lanbo/repo/test_repo/main.py'
     root_path = r'/home/lanbo/repo/test_repo'
 
@@ -76,7 +76,7 @@ def run():
                                     database_name='neo4j',
                                     task_id=task_id,
                                     use_lock=True)
-
+    graph_db.clear_task_data(task_id)
     run_single(graph_db, file_path, root_path)
 
 
