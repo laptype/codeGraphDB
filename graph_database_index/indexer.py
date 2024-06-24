@@ -6,9 +6,9 @@ import sys
 
 from jedi.inference import InferenceState
 
-from graph_database.index_utils import *
-from graph_database.index_utils import _virtualFilePath
-from indexer_visitor import AstVisitor, VerboseAstVisitor
+from graph_database_index.index_utils import *
+from graph_database_index.index_utils import _virtualFilePath
+from graph_database_index.indexer_visitor import AstVisitor, VerboseAstVisitor
 
 
 

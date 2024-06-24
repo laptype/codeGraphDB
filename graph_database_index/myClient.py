@@ -1,7 +1,7 @@
 import codecs
-import sourcetraildb as srctrl
-import ast
-from graph_database.graphDB import GraphDatabaseHandler
+
+import graph_database_index.sourcetraildb as srctrl
+from graph_database_index.graphDB import GraphDatabaseHandler
 
 class AstVisitorClient:
 

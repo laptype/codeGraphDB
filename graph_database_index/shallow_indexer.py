@@ -4,12 +4,11 @@ import os
 from enum import Enum
 import sys
 
-import sourcetraildb as srctrl
-
-from indexer import SourceRange
-from indexer import NameHierarchy
-from indexer import NameElement
-from indexer import NameHierarchyEncoder
+import graph_database_index.sourcetraildb as srctrl
+from graph_database_index.indexer import SourceRange
+from graph_database_index.indexer import NameHierarchy
+from graph_database_index.indexer import NameElement
+from graph_database_index.indexer import NameHierarchyEncoder
 
 
 _virtualFilePath = 'virtual_file.py'

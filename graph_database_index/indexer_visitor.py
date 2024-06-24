@@ -1,7 +1,7 @@
 import os
-from graph_database.index_utils import *
-from graph_database.index_utils import _virtualFilePath
-import sourcetraildb as srctrl
+from graph_database_index.index_utils import *
+from graph_database_index.index_utils import _virtualFilePath
+from graph_database_index import sourcetraildb as srctrl
 
 class AstVisitor:
 

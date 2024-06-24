@@ -6,15 +6,15 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 动态添加工作目录到 sys.path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# parent_dir = os.path.dirname(current_dir)
+# sys.path.insert(0, parent_dir)
 
-from graph_database import myClient
-from graph_database import indexer
-from graph_database import shallow_indexer
-from graph_database.graphDB import GraphDatabaseHandler
-import sourcetraildb as srctrl
+from graph_database_index import myClient
+from graph_database_index import indexer
+from graph_database_index import shallow_indexer
+from graph_database_index.graphDB import GraphDatabaseHandler
+import graph_database_index.sourcetraildb as srctrl
 
 def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db: GraphDatabaseHandler, rootPath, shallow):
     # graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
@@ -32,12 +32,17 @@ def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db:
     else:
         shallow_indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
 
-def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='',srctrl_clear=False, shallow=True):
+def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='', srctrl_clear=False, shallow=True):
     workingDirectory = os.getcwd()
     unique_id = uuid.uuid4()
     print(sourceFilePath)
-    databaseFilePath = os.path.join(workingDirectory, 'tmp_{}.srctrldb'.format(unique_id))
-    databaseFile1PrjPath = os.path.join(workingDirectory, 'tmp_{}.srctrlprj'.format(unique_id))
+
+    tmp_save_folder = os.path.join(workingDirectory, 'tmp')
+    if not os.path.exists(tmp_save_folder):
+        os.makedirs(tmp_save_folder)
+
+    databaseFilePath = os.path.join(tmp_save_folder, 'tmp_{}.srctrldb'.format(unique_id))
+    databaseFile1PrjPath = os.path.join(tmp_save_folder, 'tmp_{}.srctrlprj'.format(unique_id))
 
     if srctrl_clear:
         if not srctrl.clear():
@@ -73,7 +78,7 @@ def run():
     file_path = args.file_path
     root_path = args.root_path
     is_shallow = args.shallow
-    # is_shallow = False
+    is_shallow = True
 
     graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
                                     user="neo4j",

@@ -42,20 +42,22 @@ def run_script_in_env(env_path, script_path, working_directory, script_args=None
         return "Error: {}".format(e.stderr)
 
 
-def run_single(path, root, task_id):
+def run_single(path, root, task_id, shallow):
     # 定义虚拟环境和脚本路径
     env_path = '/root/miniconda3/envs/srctrl'
-    script_path = '/home/lanbo/code_database/graph_database/run_index_single.py'
+    script_path = '/home/lanbo/code_database/graph_database_index/run_index_single.py'
     working_directory = '/home/lanbo/code_database'
 
-    script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow']
-
+    if shallow:
+        script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow']
+    else:
+        script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id]
     return run_script_in_env(env_path, script_path, working_directory, script_args)
 
 
-def main(path_list, root, task_id, max_workers=6):
+def main(path_list, root, task_id, shallow, max_workers=6):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(run_single, path, root, task_id): path for path in path_list}
+        futures = {executor.submit(run_single, path, root, task_id, shallow): path for path in path_list}
         for future in concurrent.futures.as_completed(futures):
             path = futures[future]
             try:
@@ -86,7 +88,7 @@ def run(repo_path=None, task_id='test', max_workers=8):
 
     # 记录开始时间
     start_time = time.time()
-    main(file_list, root_path, task_id, max_workers=max_workers)
+    main(file_list, root_path, task_id, shallow=False, max_workers=max_workers)
     # 记录结束时间
     end_time = time.time()
     # 计算执行时间
