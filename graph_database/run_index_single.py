@@ -16,7 +16,7 @@ from graph_database import shallow_indexer
 from graph_database.graphDB import GraphDatabaseHandler
 import sourcetraildb as srctrl
 
-def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db: GraphDatabaseHandler, rootPath):
+def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db: GraphDatabaseHandler, rootPath, shallow):
     # graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
     #                                 user="neo4j",
     #                                 password="12345678",
@@ -26,10 +26,13 @@ def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db:
     astVisitorClient = myClient.AstVisitorClient(graph_db)
     # astVisitorClient = indexer_sh.AstVisitorClient()
 
-    indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
-    # shallow_indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
 
-def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='',srctrl_clear=False):
+    if not shallow:
+        indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
+    else:
+        shallow_indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
+
+def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='',srctrl_clear=False, shallow=True):
     workingDirectory = os.getcwd()
     unique_id = uuid.uuid4()
     print(sourceFilePath)
@@ -44,7 +47,7 @@ def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='',s
         print('ERROR: ' + srctrl.getLastError() + sourceFilePath)
 
     srctrl.beginTransaction()
-    indexSourceFile(sourceFilePath, None, workingDirectory, graph_db, root_path)
+    indexSourceFile(sourceFilePath, None, workingDirectory, graph_db, root_path, shallow)
     srctrl.commitTransaction()
 
     if not srctrl.close():
@@ -58,17 +61,19 @@ def run():
     task_id = 'test_0621'
     file_path = r'/home/lanbo/repo/test_repo/main.py'
     root_path = r'/home/lanbo/repo/test_repo'
-
     # task_id = 'test_sh'
     parser = argparse.ArgumentParser(description='Python source code indexer that generates a Sourcetrail compatible database.')
     parser.add_argument('--file_path', help='path to the source file to index', default=file_path, type=str, required=False)
     parser.add_argument('--root_path', default=root_path, required=False)
     parser.add_argument('--task_id', help='task_id', type=str, default=task_id ,required=False)
+    parser.add_argument('--shallow', help='shallow', action='store_true', required=False)
     args = parser.parse_args()
 
     task_id = args.task_id
     file_path = args.file_path
     root_path = args.root_path
+    is_shallow = args.shallow
+    # is_shallow = False
 
     graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
                                     user="neo4j",
@@ -77,7 +82,8 @@ def run():
                                     task_id=task_id,
                                     use_lock=True)
     graph_db.clear_task_data(task_id)
-    run_single(graph_db, file_path, root_path)
+
+    run_single(graph_db, file_path, root_path, shallow=is_shallow)
 
 
 if __name__ == '__main__':

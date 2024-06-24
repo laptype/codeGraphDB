@@ -9,7 +9,7 @@ from jedi.inference import InferenceState
 from graph_database.index_utils import *
 from graph_database.index_utils import _virtualFilePath
 from indexer_visitor import AstVisitor, VerboseAstVisitor
-import test
+
 
 
 

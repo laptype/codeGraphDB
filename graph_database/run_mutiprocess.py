@@ -48,7 +48,7 @@ def run_single(path, root, task_id):
     script_path = '/home/lanbo/code_database/graph_database/run_index_single.py'
     working_directory = '/home/lanbo/code_database'
 
-    script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id]
+    script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow']
 
     return run_script_in_env(env_path, script_path, working_directory, script_args)
 
