@@ -3,6 +3,9 @@ import json
 import os
 from enum import Enum
 import sys
+import codecs
+import jedi
+from jedi.inference import InferenceState
 
 import graph_database_index.sourcetraildb as srctrl
 from graph_database_index.indexer import SourceRange
@@ -28,6 +31,45 @@ def indexSourceCode(sourceCode, workingDirectory, astVisitorClient, isVerbose, s
 
 	astVisitor.traverseNode(moduleNode)
 
+def getEnvironment(environmentPath = None):
+	if environmentPath is not None:
+		try:
+			environment = jedi.create_environment(environmentPath, False)
+			environment._get_subprocess() # check if this environment is really functional
+			return environment
+		except Exception as e:
+			if os.name == 'nt' and os.path.isdir(environmentPath):
+				try:
+					environment = jedi.create_environment(os.path.join(environmentPath, "python.exe"), False)
+					environment._get_subprocess() # check if this environment is really functional
+					return environment
+				except Exception:
+					pass
+			print('WARNING: The provided environment path "' + environmentPath + '" does not specify a functional Python '
+				'environment (details: "' + str(e) + '"). Using fallback environment instead.')
+
+	try:
+		environment = jedi.get_default_environment()
+		environment._get_subprocess() # check if this environment is really functional
+		return environment
+	except Exception:
+		pass
+
+	try:
+		for environment in jedi.find_system_environments():
+			return environment
+	except Exception:
+		pass
+
+	if os.name == 'nt': # this is just a workaround and shall be removed once Jedi is fixed (Pull request https://github.com/davidhalter/jedi/pull/1282)
+		for version in jedi.api.environment._SUPPORTED_PYTHONS:
+			for exe in jedi.api.environment._get_executables_from_windows_registry(version):
+				try:
+					return jedi.api.environment.Environment(exe)
+				except jedi.InvalidPythonEnvironment:
+					pass
+
+	raise jedi.InvalidPythonEnvironment("Unable to find an executable Python environment.")
 
 def indexSourceFile(sourceFilePath, environmentDirectoryPath, workingDirectory, astVisitorClient, isVerbose, rootPath):
 
@@ -35,19 +77,40 @@ def indexSourceFile(sourceFilePath, environmentDirectoryPath, workingDirectory, 
 		print('INFO: Indexing source file "' + sourceFilePath + '".')
 
 	sourceCode = ''
-	with open(sourceFilePath, 'r', encoding='utf-8') as input:
-		sourceCode=input.read()
+	try:
+		with codecs.open(sourceFilePath, 'r', encoding='utf-8') as input:
+			sourceCode=input.read()
+	except UnicodeDecodeError:
+		print('WARNING: Unable to open source file using utf-8 encoding. Trying to derive encoding automatically.')
+		with codecs.open(sourceFilePath, 'r') as input:
+			sourceCode=input.read()
 
-	moduleNode = parso.parse(sourceCode)
+	environment = getEnvironment(environmentDirectoryPath)
 
+	if isVerbose:
+		print('INFO: Using Python environment at "' + environment.path + '" for indexing.')
+
+	project = jedi.api.project.Project(workingDirectory, environment_path = environment.path)
+
+	evaluator = InferenceState(
+		project,
+		environment=environment,
+		script_path=workingDirectory
+	)
+
+	module_node = evaluator.parse(
+		code=sourceCode,
+		path=workingDirectory,
+		cache=False,
+		diff_cache=False
+	)
 	astVisitorClient.this_source_code_lines = sourceCode.split('\n')
-
 	if (isVerbose):
-		astVisitor = VerboseAstVisitor(astVisitorClient, sourceFilePath)
+		astVisitor = VerboseAstVisitor(astVisitorClient, evaluator, sourceFilePath)
 	else:
-		astVisitor = AstVisitor(astVisitorClient, sourceFilePath, rootPath=rootPath)
+		astVisitor = AstVisitor(astVisitorClient, evaluator, sourceFilePath, rootPath=rootPath)
 
-	astVisitor.traverseNode(moduleNode)
+	astVisitor.traverseNode(module_node)
 
 class ContextType(Enum):
 	FILE = 1
@@ -76,9 +139,10 @@ class ReferenceKindInfo:
 
 class AstVisitor:
 
-	def __init__(self, client, sourceFilePath, sourceFileContent = None, sysPath = None, rootPath=None):
+	def __init__(self, client, evaluator, sourceFilePath, sourceFileContent = None, sysPath = None, rootPath=None):
 
 		self.client = client
+		self.environment = evaluator.environment
 
 		self.sourceFilePath = sourceFilePath
 		if sourceFilePath != _virtualFilePath:
@@ -97,10 +161,10 @@ class AstVisitor:
 
 		if sysPath is not None:
 			self.sysPath.extend(sysPath)
-#		else:
-#			baseSysPath = evaluator.project._get_base_sys_path(self.environment)
-#			baseSysPath.sort(reverse=True)
-#			self.sysPath.extend(baseSysPath)
+		else:
+			baseSysPath = evaluator.environment.get_sys_path()
+			baseSysPath.sort(reverse=True)
+			self.sysPath.extend(baseSysPath)
 		self.sysPath = list(filter(None, self.sysPath))
 
 		self.contextStack = []

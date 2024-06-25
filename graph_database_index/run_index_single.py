@@ -26,6 +26,7 @@ def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db:
     astVisitorClient = myClient.AstVisitorClient(graph_db)
     # astVisitorClient = indexer_sh.AstVisitorClient()
 
+    print('use shallow: '+ str(shallow))
 
     if not shallow:
         indexer.indexSourceFile(sourceFilePath, environmentPath, workingDirectory, astVisitorClient, False, rootPath)
@@ -63,22 +64,27 @@ def run_single(graph_db: GraphDatabaseHandler, sourceFilePath='', root_path='', 
         os.remove(databaseFile1PrjPath)
 
 def run():
-    task_id = 'test_0621'
-    file_path = r'/home/lanbo/repo/test_repo/main.py'
-    root_path = r'/home/lanbo/repo/test_repo'
     # task_id = 'test_sh'
     parser = argparse.ArgumentParser(description='Python source code indexer that generates a Sourcetrail compatible database.')
-    parser.add_argument('--file_path', help='path to the source file to index', default=file_path, type=str, required=False)
-    parser.add_argument('--root_path', default=root_path, required=False)
-    parser.add_argument('--task_id', help='task_id', type=str, default=task_id ,required=False)
+    parser.add_argument('--file_path', help='path to the source file to index', default='', type=str, required=False)
+    parser.add_argument('--root_path', default='', required=False)
+    parser.add_argument('--task_id', help='task_id', type=str, default='' ,required=False)
     parser.add_argument('--shallow', help='shallow', action='store_true', required=False)
+    parser.add_argument('--clear', help='clear', action='store_true', required=False)
     args = parser.parse_args()
 
-    task_id = args.task_id
-    file_path = args.file_path
-    root_path = args.root_path
-    is_shallow = args.shallow
-    is_shallow = True
+    if args.file_path == '':
+        task_id = 'test_0621'
+        file_path = r'/home/lanbo/repo/test_repo/main.py'
+        root_path = r'/home/lanbo/repo/test_repo'
+        is_shallow = True
+        is_clear = True
+    else:
+        task_id = args.task_id
+        file_path = args.file_path
+        root_path = args.root_path
+        is_shallow = args.shallow
+        is_clear = args.clear
 
     graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
                                     user="neo4j",
@@ -86,7 +92,8 @@ def run():
                                     database_name='neo4j',
                                     task_id=task_id,
                                     use_lock=True)
-    graph_db.clear_task_data(task_id)
+    if is_clear:
+        graph_db.clear_task_data(task_id)
 
     run_single(graph_db, file_path, root_path, shallow=is_shallow)
 

@@ -142,7 +142,8 @@ class GraphDatabaseHandler:
             return result
 if __name__ == '__main__':
 
-    task_label = "project_cc_python/102"
+    # task_label = "project_cc_python/102"
+    task_label = 'test_0621'
     graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
                                     user="neo4j",
                                     password="12345678",
@@ -154,12 +155,24 @@ if __name__ == '__main__':
     # MATCH (c:CLASS {name: "ExLlamaTokenizer"})-[:HAS_METHOD]->(m:METHOD)
     # RETURN m.name AS MethodName, m.signature AS MethodSignature, m.code AS MethodCode
     # """
-    user_query = """
-    MATCH (c:project_cc_python/102:CLASS)
-    RETURN c
-    """
-    # response = graph_db.get_cypher_response(user_query)
+    # user_query = """
+    # MATCH (c:project_cc_python/102:CLASS)
+    # RETURN c
+    # """
+    # # response = graph_db.get_cypher_response(user_query)
+    # # print(response)
+    # # graph_db.clear_task_data("project_cc_python/138")
+    # response = graph_db.execute_query(user_query)
     # print(response)
-    # graph_db.clear_task_data("project_cc_python/138")
-    response = graph_db.execute_query(user_query)
-    print(response)
+#     module_name = 'folder1.file2'
+#     target_name = 'add_numbers'
+#     query = f"""
+# MATCH (m:MODULE {{full_name: '{module_name}'}})-[:CONTAINS]->(c {{name: '{target_name}'}})
+# RETURN c.full_name as full_name, labels(c) AS labels
+#     """
+#     response = graph_db.execute_query(query)
+#     # 提取full_name
+#     full_name, labels = response[0]['full_name'], response[0]['labels']
+#     label = next(l for l in labels if l != task_label)
+#     print(full_name, label)
+    # 打印结果

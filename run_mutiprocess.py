@@ -1,8 +1,19 @@
 import subprocess
 import concurrent.futures
 import os
-import argparse
 import time
+from ast_search.ast_manage import AstManager
+
+class TimerDecorator:
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        start_time = time.time()
+        result = self.func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Function '{self.func.__name__}' executed in {end_time - start_time:.4f} seconds")
+        return result
 
 def get_py_files(directory):
     py_files = []
@@ -49,12 +60,12 @@ def run_single(path, root, task_id, shallow):
     working_directory = '/home/lanbo/code_database'
 
     if shallow:
-        script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow']
+        script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow', '--clear']
     else:
         script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id]
     return run_script_in_env(env_path, script_path, working_directory, script_args)
 
-
+@TimerDecorator
 def main(path_list, root, task_id, shallow, max_workers=6):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(run_single, path, root, task_id, shallow): path for path in path_list}
@@ -86,18 +97,16 @@ def run(repo_path=None, task_id='test', max_workers=8):
             # r"/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/example_alt_generator.py"
         ]
 
-    # 记录开始时间
-    start_time = time.time()
     main(file_list, root_path, task_id, shallow=False, max_workers=max_workers)
-    # 记录结束时间
-    end_time = time.time()
-    # 计算执行时间
-    elapsed_time = end_time - start_time
-    print("Time taken:", int(elapsed_time), "seconds")
+
 
 if __name__ == "__main__":
     # repo_path = r'/home/lanbo/repo/test_repo'
     repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
-    task_id = 'test_repo_full1'
+    task_id = 'test_0621'
 
     run(repo_path, task_id, max_workers=8)
+
+    # ast_manage = AstManager(repo_path, task_id)
+    # ast_manage.run()
+    # print(ast_manage.class_inherited)
