@@ -105,19 +105,17 @@ def run_update_file_path(task_id, repo_path):
     update_file_path(task_id, repo_path)
 
 if __name__ == "__main__":
-    # repo_path = r'/home/lanbo/repo/test_repo'
-    repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
+    repo_path = r'/home/lanbo/repo/test_repo'
+    # repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
     task_id = 'test_0621'
     clear_task(task_id)
 
     # 1. run shallow index
     run(repo_path, task_id, max_workers=8)
 
-    ## 2. run AST
-    # ast_manage = AstManager(repo_path, task_id)
-    # ast_manage.run()
-    # print(ast_manage.class_inherited)
+    # 2. run AST
+    ast_manage = AstManager(repo_path, task_id)
+    ast_manage.run()
+    print(ast_manage.class_inherited)
 
-    # 3. update file_path
-    # run_update_file_path(task_id, repo_path)
 

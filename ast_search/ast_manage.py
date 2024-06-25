@@ -128,18 +128,23 @@ RETURN m.full_name as full_name
             cur_module_full_name = get_dotted_name(self.root_path, file_full_path)
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                class_name = node.name
-                cur_class_full_name = cur_module_full_name + '.' + class_name
-                for base in node.bases:
-                    if isinstance(base, ast.Name):
-                        base_class_full_name, _ = self.get_full_name_from_graph(cur_module_full_name, base.id)
-                        if base_class_full_name is None:
-                            print(cur_class_full_name, base.id)
-                        if cur_class_full_name not in self.class_inherited.keys():
-                            self.class_inherited[cur_class_full_name] = []
-                        self.class_inherited[cur_class_full_name].append(base_class_full_name)
-                        # self._build_inherited_method(cur_class_full_name, base_class_full_name)
+            if not isinstance(node, ast.ClassDef):
+                continue
+            class_name = node.name
+            cur_class_full_name = cur_module_full_name + '.' + class_name
+            for base in node.bases:
+                if not isinstance(base, ast.Name):
+                    continue
+                base_class_full_name, _ = self.get_full_name_from_graph(cur_module_full_name, base.id)
+                if base_class_full_name is None:
+                    print('base_class_full_name is None: ', cur_class_full_name, base.id)
+                if cur_class_full_name not in self.class_inherited.keys():
+                    self.class_inherited[cur_class_full_name] = []
+                self.class_inherited[cur_class_full_name].append(base_class_full_name)
+                if base_class_full_name:
+                    edge = self.graphDB.add_edge(start_name=cur_class_full_name,
+                                                 relationship_type='INHERITS', end_name=base_class_full_name)
+                # self._build_inherited_method(cur_class_full_name, base_class_full_name)
 
 
 
