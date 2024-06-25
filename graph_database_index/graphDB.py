@@ -140,6 +140,16 @@ class GraphDatabaseHandler:
             # Execute the APOC script
             result = self.graph.run(apoc_script).data()
             return result
+
+def clear_task(task_id):
+    graphDB = GraphDatabaseHandler(uri="http://localhost:7474",
+                                        user="neo4j",
+                                        password="12345678",
+                                        database_name='neo4j',
+                                        task_id=task_id,
+                                        use_lock=True)
+    graphDB.clear_task_data(task_id)
+
 if __name__ == '__main__':
 
     # task_label = "project_cc_python/102"

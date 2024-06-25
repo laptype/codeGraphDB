@@ -3,6 +3,7 @@ import concurrent.futures
 import os
 import time
 from ast_search.ast_manage import AstManager
+from graph_database_index.graphDB import clear_task
 
 class TimerDecorator:
     def __init__(self, func):
@@ -60,7 +61,7 @@ def run_single(path, root, task_id, shallow):
     working_directory = '/home/lanbo/code_database'
 
     if shallow:
-        script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow', '--clear']
+        script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id, '--shallow']
     else:
         script_args = ['--file_path', path, '--root_path', root, '--task_id', task_id]
     return run_script_in_env(env_path, script_path, working_directory, script_args)
@@ -97,16 +98,16 @@ def run(repo_path=None, task_id='test', max_workers=8):
             # r"/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/example_alt_generator.py"
         ]
 
-    main(file_list, root_path, task_id, shallow=False, max_workers=max_workers)
+    main(file_list, root_path, task_id, shallow=True, max_workers=max_workers)
 
 
 if __name__ == "__main__":
     # repo_path = r'/home/lanbo/repo/test_repo'
     repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
     task_id = 'test_0621'
+    # clear_task(task_id)
+    # run(repo_path, task_id, max_workers=8)
 
-    run(repo_path, task_id, max_workers=8)
-
-    # ast_manage = AstManager(repo_path, task_id)
-    # ast_manage.run()
+    ast_manage = AstManager(repo_path, task_id)
+    ast_manage.run()
     # print(ast_manage.class_inherited)
