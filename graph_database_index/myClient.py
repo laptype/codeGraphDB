@@ -5,7 +5,7 @@ from graph_database_index.graphDB import GraphDatabaseHandler
 
 class AstVisitorClient:
 
-	def __init__(self, graphDB: GraphDatabaseHandler):
+	def __init__(self, graphDB: GraphDatabaseHandler, task_root_path=''):
 		self.indexedFileId = 0
 		if srctrl.isCompatible():
 			print('INFO: Loaded database is compatible.')
@@ -13,7 +13,7 @@ class AstVisitorClient:
 			print('WARNING: Loaded database is not compatible.')
 			print('INFO: Supported DB Version: ' + str(srctrl.getSupportedDatabaseVersion()))
 			print('INFO: Loaded DB Version: ' + str(srctrl.getLoadedDatabaseVersion()))
-
+		self.task_root_path = task_root_path
 		self.graphDB = graphDB
 		self.this_module = ''
 		self.this_file_path = ''
@@ -31,6 +31,12 @@ class AstVisitorClient:
 		self.referenceId_to_data = {}
 		self.referenceId_to_data['Unsolved'] = []
 
+	def process_file_path(self, file_path):
+		if self.task_root_path:
+			if file_path.startswith(self.task_root_path):
+				file_path = file_path[len(self.task_root_path):]
+		return file_path
+
 	def extract_signature(self, code):
 		pass
 		# parsed_code = ast.parse(code)
@@ -38,6 +44,8 @@ class AstVisitorClient:
 		# a = 0
 
 	def extract_code_between_lines(self, start_line, end_line, is_indent=False):
+		if start_line < 1:
+			start_line = 1
 		extracted_lines = self.this_source_code_lines[start_line-1:end_line]
 
 		# 去除指定数量的缩进
@@ -51,16 +59,17 @@ class AstVisitorClient:
 		return extracted_code
 
 	def extract_code_from_file(self, file_path, start_line, end_line, is_indent=False):
+		if start_line < 1:
+			start_line = 1
 		try:
 			with codecs.open(file_path, 'r', encoding='utf-8') as input:
 				sourceCode = input.read()
 			source_code_lines = sourceCode.split('\n')
-			extracted_lines = source_code_lines[start_line - 1:end_line]
+			extracted_lines = source_code_lines[start_line-1:end_line]
 		except:
 			return ''
 		# 去除指定数量的缩进
 		if is_indent:
-			extracted_lines = source_code_lines[start_line-1:end_line-1]
 			first_line_indent = len(extracted_lines[0]) - len(extracted_lines[0].lstrip())
 
 			extracted_lines = [line[first_line_indent:] if len(line) > first_line_indent else '' for line in extracted_lines]
@@ -91,7 +100,7 @@ class AstVisitorClient:
 		except:
 			return -1, -1
 
-	def recordSymbol(self, nameHierarchy, node_path='', tree_node=None):
+	def recordSymbol(self, nameHierarchy, node_path='', tree_node=None, global_node=None):
 
 		if nameHierarchy is not None:
 			symbolId = srctrl.recordSymbol(nameHierarchy.serialize())
@@ -106,16 +115,21 @@ class AstVisitorClient:
 					"kind": '',
 					"parent_name": parent_name,
 				}
+			if global_node:
+				start_line, end_line = self.get_import_scope_location(global_node)
+				code = self.extract_code_from_file(node_path, start_line-2, end_line+2, is_indent=True)
+				self.symbol_data[name]['code'] = code
 			if tree_node and node_path:
 				start_line, end_line = self.get_import_scope_location(tree_node)
 				code = self.extract_code_from_file(node_path, start_line, end_line, is_indent=True)
-				self.symbol_data[name] = {
-					"name": name,
-					"path": node_path,
-					"kind": '',
-					"code": code,
-					"parent_name": parent_name,
-				}
+				self.symbol_data[name]['code'] = code
+				# self.symbol_data[name] = {
+				# 	"name": name,
+				# 	"path": node_path,
+				# 	"kind": '',
+				# 	"code": code,
+				# 	"parent_name": parent_name,
+				# }
 			return symbolId
 		return 0
 
@@ -136,21 +150,21 @@ class AstVisitorClient:
 			if full_name == self.this_module:
 				self.graphDB.add_node(label='MODULE', full_name=full_name, parms={
 					"name": full_name,
-					"file_path": self.this_file_path,
+					"file_path": self.process_file_path(self.this_file_path),
 				})
 			else:
 				self.graphDB.add_node(label='MODULE', full_name=full_name, parms={
 					"name": full_name,
-					"file_path": self.symbol_data[full_name]['path']
+					"file_path": self.process_file_path(self.symbol_data[full_name]['path'])
 				})
 		elif kind in ['CLASS', 'FUNCTION', 'METHOD', 'GLOBAL_VARIABLE', 'FIELD']:
 
 			data = {
 				"name": full_name.split('.')[-1],
-				"file_path": self.symbol_data[full_name]['path']
+				"file_path": self.process_file_path(self.symbol_data[full_name]['path'])
 			}
 			if self.symbol_data[full_name]['parent_name'] == self.this_module:
-				data['file_path'] = self.this_file_path
+				data['file_path'] = self.process_file_path(self.this_file_path)
 			if 'code' in self.symbol_data[full_name].keys():
 				data['code'] = self.symbol_data[full_name]['code']
 
@@ -159,7 +173,7 @@ class AstVisitorClient:
 				if parent_class:
 					data["class"] = parent_class
 					if self.symbol_data[parent_class]['parent_name'] == self.this_module:
-						data['file_path'] = self.this_file_path
+						data['file_path'] = self.process_file_path(self.this_file_path)
 					if kind == 'FUNCTION':
 						kind = 'METHOD'
 						self.symbol_data[full_name]['kind'] = kind
@@ -209,13 +223,18 @@ class AstVisitorClient:
 			sourceRange.endColumn
 		)
 
+		# if kind in ['GLOBAL_VARIABLE', 'FIELD']:
+		# 	code = self.extract_code_between_lines(sourceRange.startLine-3, sourceRange.endLine+3)
+		# 	self.graphDB.add_node(kind, full_name=name, parms={
+		# 		'code': code.strip()
+		# 	})
+
 	def recordSymbolScopeLocation(self, symbolId, sourceRange):
 		"""
 		这个是Symbol的作用域范围 [start_line, end_line)
 		"""
 		name = self.symbolId_to_Name[symbolId]
 		kind = self.symbol_data[name]['kind']
-		file_path = self.indexedFileId_to_path[self.indexedFileId]
 
 		if kind in ['FUNCTION', 'METHOD']:
 			code = self.extract_code_between_lines(sourceRange.startLine, sourceRange.endLine, is_indent=True)
@@ -223,12 +242,7 @@ class AstVisitorClient:
 				'code': code
 			})
 			self.extract_signature(code)
-			data = {
-				"name": name,
-				"file_path": file_path,
-				"startLine": sourceRange.startLine,
-				"endLine": sourceRange.endLine,
-			}
+
 		srctrl.recordSymbolScopeLocation(
 			symbolId,
 			self.indexedFileId,
@@ -243,13 +257,7 @@ class AstVisitorClient:
 			这个没有用到
 		"""
 		name = self.symbolId_to_Name[symbolId]
-		file_path = self.indexedFileId_to_path[self.indexedFileId]
-		data = {
-			"name": name,
-			"file_path": file_path,
-			"startLine": sourceRange.startLine,
-			"endLine": sourceRange.endLine,
-		}
+
 		srctrl.recordSymbolSignatureLocation(
 			symbolId,
 			self.indexedFileId,
@@ -302,30 +310,30 @@ class AstVisitorClient:
 											 referencedSymbolId,
 											 referenceKind)
 
-		self.referenceId_to_data[referenceId] = {
-			"contextName": contextName,
-			"referenceName": referenceName,
-			"referenceKindStr": referenceKindStr
-		}
+		# self.referenceId_to_data[referenceId] = {
+		# 	"contextName": contextName,
+		# 	"referenceName": referenceName,
+		# 	"referenceKindStr": referenceKindStr
+		# }
 		return referenceId
 
 	def recordReferenceLocation(self, referenceId, sourceRange):
 		"""
 		记录reference的位置
 		"""
-		referenceData = self.referenceId_to_data[referenceId]
-		file_path = self.indexedFileId_to_path[self.indexedFileId]
-		data = {
-			"data": referenceData,
-			"file_path": file_path,
-			"startLine": sourceRange.startLine,
-			"endLine": sourceRange.endLine,
-		}
-		self.referenceId_to_data[referenceId]['location'] = {
-			"file_path": file_path,
-			"startLine": sourceRange.startLine,
-			"endLine": sourceRange.endLine,
-		}
+		# referenceData = self.referenceId_to_data[referenceId]
+		# file_path = self.indexedFileId_to_path[self.indexedFileId]
+		# data = {
+		# 	"data": referenceData,
+		# 	"file_path": file_path,
+		# 	"startLine": sourceRange.startLine,
+		# 	"endLine": sourceRange.endLine,
+		# }
+		# self.referenceId_to_data[referenceId]['location'] = {
+		# 	"file_path": file_path,
+		# 	"startLine": sourceRange.startLine,
+		# 	"endLine": sourceRange.endLine,
+		# }
 		srctrl.recordReferenceLocation(
 			referenceId,
 			self.indexedFileId,
@@ -345,18 +353,18 @@ class AstVisitorClient:
 		"""
 		记录无法跟踪的情况
 		"""
-		contextName = self.symbolId_to_Name[contextSymbolId]
-		referenceKindStr = referenceKindToString(referenceKind)
-		file_path = self.indexedFileId_to_path[self.indexedFileId]
-		self.referenceId_to_data['Unsolved'].append({
-			"contextName": contextName,
-			"referenceKindStr": referenceKindStr,
-			"location": {
-				"file_path": file_path,
-				"startLine": sourceRange.startLine,
-				"endLine": sourceRange.endLine,
-			}
-		})
+		# contextName = self.symbolId_to_Name[contextSymbolId]
+		# referenceKindStr = referenceKindToString(referenceKind)
+		# file_path = self.indexedFileId_to_path[self.indexedFileId]
+		# self.referenceId_to_data['Unsolved'].append({
+		# 	"contextName": contextName,
+		# 	"referenceKindStr": referenceKindStr,
+		# 	"location": {
+		# 		"file_path": file_path,
+		# 		"startLine": sourceRange.startLine,
+		# 		"endLine": sourceRange.endLine,
+		# 	}
+		# })
 
 		return srctrl.recordReferenceToUnsolvedSymhol(
 			contextSymbolId,

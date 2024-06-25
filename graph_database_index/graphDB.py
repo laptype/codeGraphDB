@@ -79,6 +79,13 @@ class GraphDatabaseHandler:
             result = self.graph.run(query)
             return [record for record in result]
 
+    def update_node(self, full_name, parms={}):
+        with self.lock:
+            existing_node = self._match_node(full_name)
+            if existing_node:
+                existing_node.update(parms)
+                self.graph.push(existing_node)
+
     def add_node(self, label, full_name, parms={}):
         with self.lock:
             existing_node = self._match_node(full_name)
@@ -113,33 +120,30 @@ class GraphDatabaseHandler:
                     return rel
             return None
 
-    def get_cypher_response(self, query):
+    def update_file_path(self, root_path):
         with self.lock:
-            # Define the task label based on task_id
-            task_label = self.task_id
+            # 获取所有包含 file_path 属性的节点
+            query = (
+                "MATCH (n:`{0}`) "
+                "WHERE exists(n.file_path)"
+                "RETURN n.file_path as file_path, n.full_name as full_name"
+            ).format(self.task_id)
 
-            # Construct the APOC script
-            apoc_script = """
-            CALL apoc.cypher.run(
-                "MATCH (n) WHERE n:`{task_label}`
-                 WITH collect(n) AS nodes
-                 CALL apoc.create.subgraph({{nodes: nodes}}) YIELD graph
-                 RETURN graph",
-                {{}}
-            ) YIELD value
-            WITH value.graph AS taskGraph
-            CALL apoc.cypher.run(
-                "UNWIND $taskGraph.nodes AS n
-                 UNWIND $taskGraph.rels AS r
-                 {query}",
-                {{taskGraph: taskGraph}}
-            ) YIELD value
-            RETURN value
-            """.format(task_label=task_label, query=query)
-
-            # Execute the APOC script
-            result = self.graph.run(apoc_script).data()
-            return result
+            nodes_with_file_path = self.execute_query(query)
+            # 遍历每个节点并更新 file_path
+            for node in nodes_with_file_path:
+                full_name = node['full_name']
+                file_path = node['file_path']
+                # old_path = node['file_path']
+                if file_path.startswith(root_path):
+                    file_path = file_path[len(root_path):]
+                    self.update_node(full_name=full_name, parms={
+                        "file_path": file_path
+                    })
+                # new_path = os.path.abspath(old_path)
+                # if old_path != new_path:
+                #     node['file_path'] = new_path
+                #     self.graph.push(node)
 
 def clear_task(task_id):
     graphDB = GraphDatabaseHandler(uri="http://localhost:7474",
@@ -149,6 +153,16 @@ def clear_task(task_id):
                                         task_id=task_id,
                                         use_lock=True)
     graphDB.clear_task_data(task_id)
+
+def update_file_path(task_id, root_path):
+    graphDB = GraphDatabaseHandler(uri="http://localhost:7474",
+                                    user="neo4j",
+                                    password="12345678",
+                                    database_name='neo4j',
+                                    task_id=task_id,
+                                    use_lock=True)
+
+    graphDB.update_file_path(root_path)
 
 if __name__ == '__main__':
 

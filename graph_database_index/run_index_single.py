@@ -23,7 +23,7 @@ def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db:
     #                                 database_name='neo4j',
     #                                 task_id='test2')
 
-    astVisitorClient = myClient.AstVisitorClient(graph_db)
+    astVisitorClient = myClient.AstVisitorClient(graph_db, task_root_path=rootPath)
     # astVisitorClient = indexer_sh.AstVisitorClient()
 
     print('use shallow: '+ str(shallow))
@@ -75,11 +75,11 @@ def run():
 
     if args.file_path == '':
         task_id = 'test_0621'
-        # file_path = r'/home/lanbo/repo/test_repo/main.py'
-        # root_path = r'/home/lanbo/repo/test_repo'
+        file_path = r'/home/lanbo/repo/test_repo/main.py'
+        root_path = r'/home/lanbo/repo/test_repo'
 
-        file_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/model.py'
-        root_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/'
+        # file_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/model.py'
+        # root_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/'
         is_shallow = True
         is_clear = True
     else:

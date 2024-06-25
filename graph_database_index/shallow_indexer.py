@@ -477,7 +477,7 @@ class AstVisitor:
 			else:
 				symbolNameHierarchy = self.getNameHierarchyOfNode(node)
 				if symbolNameHierarchy is not None:
-					symbolId = self.client.recordSymbol(symbolNameHierarchy)
+					symbolId = self.client.recordSymbol(symbolNameHierarchy, global_node=node, node_path=self.sourceFilePath)
 					self.client.recordSymbolKind(symbolId, srctrl.SYMBOL_GLOBAL_VARIABLE)
 					self.client.recordSymbolDefinitionKind(symbolId, srctrl.DEFINITION_EXPLICIT)
 					self.client.recordSymbolLocation(symbolId, getSourceRangeOfNode(node))
