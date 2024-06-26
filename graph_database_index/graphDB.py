@@ -1,5 +1,6 @@
 from py2neo import Graph, Node, NodeMatcher, Relationship, RelationshipMatcher
 import fasteners
+import subprocess
 class NoOpLock:
     def __enter__(self):
         pass
@@ -26,12 +27,31 @@ class FileLock:
 
 class GraphDatabaseHandler:
     def __init__(self, uri, user, password, database_name='neo4j', task_id='', use_lock=False, lockfile='neo4j.lock'):
-        self.graph = Graph(uri, auth=(user, password), name=database_name)
+        self.graph = self._connect_to_graph(uri, user, password, database_name)
         self.node_matcher = NodeMatcher(self.graph)
         self.rel_matcher = RelationshipMatcher(self.graph)
         self.none_label = 'none'
         self.task_id = task_id
         self.lock = FileLock(lockfile) if use_lock else NoOpLock()
+
+    def _connect_to_graph(self, uri, user, password, database_name):
+        try:
+            return Graph(uri, auth=(user, password), name=database_name)
+        except Exception as e:
+            self._start_neo4j()
+            try:
+                return Graph(uri, auth=(user, password), name=database_name)
+            except Exception as e:
+                raise ConnectionError(f"Failed to connect to Neo4j at {uri} after attempting to start the service.") from e
+
+    def _start_neo4j(self):
+        # 使用系统命令启动Neo4j
+        # 这里假设Neo4j的启动脚本或命令是 "neo4j start"
+        # 根据你的系统和安装配置，这可能会有所不同
+        try:
+            subprocess.check_call(["neo4j", "start"], shell=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError("Failed to start Neo4j service.") from e
 
     def _match_node(self, full_name):
         if self.task_id:
@@ -174,6 +194,11 @@ if __name__ == '__main__':
                                     database_name='neo4j',
                                     task_id=task_label,
                                     use_lock=True)
+    user_query = """
+    MATCH (c:`project_cc_python/102`:CLASS)
+    RETURN c
+    """
+    print(graph_db.execute_query(user_query))
 
     # user_query = """
     # MATCH (c:CLASS {name: "ExLlamaTokenizer"})-[:HAS_METHOD]->(m:METHOD)

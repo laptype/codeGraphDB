@@ -18,6 +18,7 @@ class AstManager:
         self.task_id = task_id
         # self._build_index()
         self.class_inherited = {}
+        self.processed_relations = set()  # 用于记录已经处理过的关系
         self.visited = []
 
     def get_full_name_from_graph(self, module_full_name, target_name):
@@ -60,6 +61,14 @@ RETURN m.full_name as full_name
                 self._build_inherited_method(cur_class_full_name, base_class_full_name)
 
     def _build_inherited_method(self, cur_class_full_name, base_class_full_name):
+        # 创建一个关系的唯一标识符
+        relation_key = (cur_class_full_name, base_class_full_name)
+        # 如果这个关系已经处理过，直接返回
+        if relation_key in self.processed_relations:
+            return
+        # 将当前关系标记为已处理
+        self.processed_relations.add(relation_key)
+
         methods = self.get_all_method_of_class(base_class_full_name)
         if methods is None:
             return
@@ -77,6 +86,7 @@ RETURN m.full_name as full_name
         if file_full_path in self.visited:
             return None
         self.visited.append(file_full_path)
+
         try:
             file_content = pathlib.Path(file_full_path).read_text()
             tree = ast.parse(file_content)
