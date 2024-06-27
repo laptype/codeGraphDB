@@ -14,6 +14,7 @@ from graph_database_index import myClient
 from graph_database_index import indexer
 from graph_database_index import shallow_indexer
 from graph_database_index.graphDB import GraphDatabaseHandler
+# from graph_database_index.graphDB import GraphDatabaseHandlerNone as GraphDatabaseHandler
 import graph_database_index.sourcetraildb as srctrl
 
 def indexSourceFile(sourceFilePath, environmentPath, workingDirectory, graph_db: GraphDatabaseHandler, rootPath, shallow):
@@ -76,7 +77,7 @@ def run():
     if args.file_path == '':
         task_id = 'test_0621'
         file_path = r'/home/lanbo/repo/test_repo/main.py'
-        root_path = r'/home/lanbo/repo/test_repo'
+        root_path = r'/home/lanbo/repo/test_repo/'
 
         # file_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/model.py'
         # root_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/'
@@ -99,6 +100,7 @@ def run():
         graph_db.clear_task_data(task_id)
 
     run_single(graph_db, file_path, root_path, shallow=is_shallow)
+    print('Success build graph')
 
 
 if __name__ == '__main__':

@@ -97,26 +97,27 @@ def run(repo_path=None, task_id='test', max_workers=8):
             # r"/home/lanbo/repo/test_repo/main.py"
             # r"/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085/example_alt_generator.py"
         ]
-
+    # print(len(file_list))
     main(file_list, root_path, task_id, shallow=True, max_workers=max_workers)
 
-@TimerDecorator
-def run_update_file_path(task_id, repo_path):
-    update_file_path(task_id, repo_path)
+# @TimerDecorator
+# def run_update_file_path(task_id, repo_path):
+#     update_file_path(task_id, repo_path)
 
 if __name__ == "__main__":
-    # repo_path = r'/home/lanbo/repo/test_repo'
+    repo_path = r'/home/lanbo/repo/test_repo/'
     # repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
-    repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/open-mmlab-Multimodal-GPT-9c73e47'
-    task_id = 'test_0621'
-    # clear_task(task_id)
+    # repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/open-mmlab-Multimodal-GPT-9c73e47'
+    # repo_path = r'/home/lanbo/repo/sklearn'
+    task_id = 'sklearn'
+    clear_task(task_id)
 
     # 1. run shallow index
-    # run(repo_path, task_id, max_workers=8)
+    run(repo_path, task_id, max_workers=1)
 
     # 2. run AST
-    ast_manage = AstManager(repo_path, task_id)
-    ast_manage.run()
-    print(ast_manage.class_inherited)
+    # ast_manage = AstManager(repo_path, task_id)
+    # ast_manage.run()
+    # print(ast_manage.class_inherited)
 
 

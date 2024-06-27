@@ -4,6 +4,7 @@ import jedi
 from jedi.api import helpers
 from jedi.api import classes
 from jedi.inference.gradual.conversion import convert_names
+
 _virtualFilePath = 'virtual_file.py'
 
 class SourcetrailScript(jedi.Script):

@@ -1,12 +1,19 @@
+import os
+
 from py2neo import Graph, Node, NodeMatcher, Relationship, RelationshipMatcher
 import fasteners
 import subprocess
+import codecs
+import re
+import json
+
 class NoOpLock:
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
 
 class FileLock:
     # 读写锁
@@ -25,6 +32,7 @@ class FileLock:
             self.lock.release()
             self.lock_acquired = False
 
+
 class GraphDatabaseHandler:
     def __init__(self, uri, user, password, database_name='neo4j', task_id='', use_lock=False, lockfile='neo4j.lock'):
         self.graph = self._connect_to_graph(uri, user, password, database_name)
@@ -42,7 +50,8 @@ class GraphDatabaseHandler:
             try:
                 return Graph(uri, auth=(user, password), name=database_name)
             except Exception as e:
-                raise ConnectionError(f"Failed to connect to Neo4j at {uri} after attempting to start the service.") from e
+                raise ConnectionError(
+                    "Failed to connect to Neo4j at {} after attempting to start the service.".format(uri)) from e
 
     def _start_neo4j(self):
         # 使用系统命令启动Neo4j
@@ -160,34 +169,88 @@ class GraphDatabaseHandler:
                     self.update_node(full_name=full_name, parms={
                         "file_path": file_path
                     })
-                # new_path = os.path.abspath(old_path)
-                # if old_path != new_path:
-                #     node['file_path'] = new_path
-                #     self.graph.push(node)
+
+class GraphDatabaseHandlerNone():
+    def __init__(self, *args, **params):
+        pass
+
+    def add_node(self, label, full_name, parms={}):
+        pass
+
+    def add_edge(self, start_label=None, start_name='', relationship_type='', end_label=None, end_name='', params={}):
+        pass
+
 
 def clear_task(task_id):
     graphDB = GraphDatabaseHandler(uri="http://localhost:7474",
-                                        user="neo4j",
-                                        password="12345678",
-                                        database_name='neo4j',
-                                        task_id=task_id,
-                                        use_lock=True)
+                                   user="neo4j",
+                                   password="12345678",
+                                   database_name='neo4j',
+                                   task_id=task_id,
+                                   use_lock=True)
     graphDB.clear_task_data(task_id)
+
 
 def update_file_path(task_id, root_path):
     graphDB = GraphDatabaseHandler(uri="http://localhost:7474",
-                                    user="neo4j",
-                                    password="12345678",
-                                    database_name='neo4j',
-                                    task_id=task_id,
-                                    use_lock=True)
+                                   user="neo4j",
+                                   password="12345678",
+                                   database_name='neo4j',
+                                   task_id=task_id,
+                                   use_lock=True)
 
     graphDB.update_file_path(root_path)
 
-if __name__ == '__main__':
 
+def extract_code_from_file(file_path, start_line, end_line, is_indent=True):
+    if start_line < 1:
+        start_line = 1
+    try:
+        with codecs.open(file_path, 'r', encoding='utf-8') as input:
+            sourceCode = input.read()
+        source_code_lines = sourceCode.split('\n')
+        extracted_lines = source_code_lines[start_line - 1:end_line]
+    except:
+        return ''
+    # 去除指定数量的缩进
+    if is_indent:
+        first_line_indent = len(extracted_lines[0]) - len(extracted_lines[0].lstrip())
+
+        extracted_lines = [line[first_line_indent:] if len(line) > first_line_indent else '' for line in
+                           extracted_lines]
+
+    extracted_code = '\n'.join(extracted_lines)
+    return extracted_code
+
+def process_string(input_string, repo_path, folded_len=10, is_indent=False):
+    # 定义正则表达式，匹配 <CODE></CODE> 之间的内容
+    pattern = re.compile(r'<CODE>(.*?)</CODE>')
+    matches = pattern.findall(input_string)
+
+    for match in matches:
+
+        code_dict = json.loads(match)
+        file_path = os.path.join(repo_path, code_dict["F"])
+        start_line = int(code_dict["S"])
+        end_line = int(code_dict["E"])
+
+        code_snippet = extract_code_from_file(file_path, start_line, end_line, is_indent=is_indent)
+
+        if len(matches) > 1 and len(code_snippet) > folded_len:
+            # 只显示前10个非空格字符
+            trimmed_snippet = code_snippet
+            folded_snippet = "{0}...(code folded)".format(trimmed_snippet.strip()[:folded_len])
+            input_string = input_string.replace('<CODE>{}</CODE>'.format(match), folded_snippet)
+        else:
+            input_string = input_string.replace('<CODE>{}</CODE>'.format(match), code_snippet)
+
+
+    return input_string
+
+if __name__ == '__main__':
     # task_label = "project_cc_python/102"
-    task_label = 'test_0621'
+    repo_path = r'/home/lanbo/repo/test_repo'
+    task_label = 'sklearn'
     graph_db = GraphDatabaseHandler(uri="http://localhost:7474",
                                     user="neo4j",
                                     password="12345678",
@@ -195,10 +258,14 @@ if __name__ == '__main__':
                                     task_id=task_label,
                                     use_lock=True)
     user_query = """
-    MATCH (c:`project_cc_python/102`:CLASS)
+    MATCH (c:`sklearn`:CLASS {name: 'Person'})
     RETURN c
     """
-    print(graph_db.execute_query(user_query))
+    response = graph_db.execute_query(user_query)
+    for record in response:
+        print(str(record))
+        print((process_string(str(record), repo_path)))
+        print()
 
     # user_query = """
     # MATCH (c:CLASS {name: "ExLlamaTokenizer"})-[:HAS_METHOD]->(m:METHOD)
@@ -224,4 +291,4 @@ if __name__ == '__main__':
 #     full_name, labels = response[0]['full_name'], response[0]['labels']
 #     label = next(l for l in labels if l != task_label)
 #     print(full_name, label)
-    # 打印结果
+# 打印结果

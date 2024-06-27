@@ -2,7 +2,7 @@ import codecs
 
 import graph_database_index.sourcetraildb as srctrl
 from graph_database_index.graphDB import GraphDatabaseHandler
-
+# from graph_database_index.graphDB import GraphDatabaseHandlerNone as GraphDatabaseHandler
 class AstVisitorClient:
 
 	def __init__(self, graphDB: GraphDatabaseHandler, task_root_path=''):
@@ -43,14 +43,16 @@ class AstVisitorClient:
 		# function_def = parsed_code.body[0]
 		# a = 0
 
-	def extract_code_between_lines(self, start_line, end_line, is_indent=False):
+	def extract_code_between_lines(self, start_line, end_line, is_indent=True, is_code=True):
+		if is_code:
+			return '<CODE>{{"S":{0},"E":{1},"F":"{2}"}}</CODE>'.format(start_line, end_line, self.this_file_path)
 		if start_line < 1:
 			start_line = 1
 		extracted_lines = self.this_source_code_lines[start_line-1:end_line]
 
 		# 去除指定数量的缩进
 		if is_indent:
-			extracted_lines = self.this_source_code_lines[start_line-1:end_line-1]
+			extracted_lines = self.this_source_code_lines[start_line-1:end_line]
 			first_line_indent = len(extracted_lines[0]) - len(extracted_lines[0].lstrip())
 
 			extracted_lines = [line[first_line_indent:] if len(line) > first_line_indent else '' for line in extracted_lines]
@@ -58,7 +60,9 @@ class AstVisitorClient:
 		extracted_code = '\n'.join(extracted_lines)
 		return extracted_code
 
-	def extract_code_from_file(self, file_path, start_line, end_line, is_indent=False):
+	def extract_code_from_file(self, file_path, start_line, end_line, is_indent=True, is_code=True):
+		if is_code:
+			return '<CODE>{{"S":{0},"E":{1},"F":"{2}"}}</CODE>'.format(start_line, end_line, file_path)
 		if start_line < 1:
 			start_line = 1
 		try:
@@ -209,7 +213,7 @@ class AstVisitorClient:
 		kind = self.symbol_data[name]['kind']
 
 		if kind in ['CLASS', 'FUNCTION', 'METHOD']:
-			code = self.extract_code_between_lines(sourceRange.startLine, sourceRange.endLine)
+			code = self.extract_code_between_lines(sourceRange.startLine, sourceRange.endLine, is_code=False)
 			self.graphDB.add_node(kind, full_name=name, parms={
 				'signature': code.strip()
 			})
@@ -236,7 +240,7 @@ class AstVisitorClient:
 		name = self.symbolId_to_Name[symbolId]
 		kind = self.symbol_data[name]['kind']
 
-		if kind in ['FUNCTION', 'METHOD']:
+		if kind in ['CLASS', 'FUNCTION', 'METHOD']:
 			code = self.extract_code_between_lines(sourceRange.startLine, sourceRange.endLine, is_indent=True)
 			self.graphDB.add_node(kind, full_name=name, parms={
 				'code': code
