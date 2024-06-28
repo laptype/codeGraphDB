@@ -23,20 +23,35 @@ class AstManager:
 
     def get_full_name_from_graph(self, module_full_name, target_name):
         query = f"""
-MATCH (m:MODULE:`{self.task_id}` {{full_name: '{module_full_name}'}})-[:CONTAINS]->(c {{name: '{target_name}'}})
+MATCH (m:MODULE:`{self.task_id}` {{full_name: '{module_full_name}'}})-[:CONTAINS]->(c:`{self.task_id}` {{name: '{target_name}'}})
 RETURN c.full_name as full_name, labels(c) AS labels
 """
         response = self.graphDB.execute_query(query)
         if response:
             full_name, labels = response[0]['full_name'], response[0]['labels']
-            label = next(l for l in labels if l != self.task_id)
+            label = next(l for l in labels if l in ['MODULE', 'CLASS', 'FUNCTION', 'METHOD', 'GLOBAL_VARIABLE', 'FIELD'])
             return full_name, label
+        else:
+            return None, None
+
+    def get_all_name_from_graph(self, module_full_name):
+        query = f"""
+MATCH (m:MODULE:`{self.task_id}` {{full_name: '{module_full_name}'}})-[:CONTAINS]->(c:`{self.task_id}`)
+RETURN c.full_name as full_name, labels(c) AS labels
+"""
+        def get_type_label(labels):
+            label = next(l for l in labels if l in ['MODULE', 'CLASS', 'FUNCTION', 'METHOD', 'GLOBAL_VARIABLE', 'FIELD'])
+            return label
+        response = self.graphDB.execute_query(query)
+
+        if response:
+            return [[record['full_name'], get_type_label(record['labels'])] for record in response]
         else:
             return None, None
 
     def get_all_method_of_class(self, class_full_name):
         query = f"""
-MATCH (c:CLASS:`{self.task_id}` {{full_name: '{class_full_name}'}})-[:HAS_METHOD]->(m)
+MATCH (c:CLASS:`{self.task_id}` {{full_name: '{class_full_name}'}})-[:HAS_METHOD]->(m:`{self.task_id}`)
 RETURN m.full_name as full_name
 """
         response = self.graphDB.execute_query(query)
@@ -47,8 +62,9 @@ RETURN m.full_name as full_name
             return None
 
     @method_decorator
-    def run(self):
-        py_files = get_py_files(self.project_path)
+    def run(self, py_files=None):
+        if py_files is None:
+            py_files = get_py_files(self.project_path)
 
         for py_file in py_files:
             self.build_modules_contain(py_file)
@@ -82,6 +98,32 @@ RETURN m.full_name as full_name
             for base_base_class_full_name in self.class_inherited[base_class_full_name]:
                 self._build_inherited_method(cur_class_full_name, base_base_class_full_name)
 
+    def _build_modules_contain_edge(self, target_module_full_name, target_name, cur_module_full_name):
+        target_full_name, target_label = self.get_full_name_from_graph(target_module_full_name, target_name)
+        if not target_full_name:
+            return False
+
+        edge = self.graphDB.add_edge(start_label='MODULE', start_name=cur_module_full_name,
+                                     relationship_type='CONTAINS', end_name=target_full_name,
+                                     params={"association_type": target_label})
+        return edge is not None
+
+    def _build_modules_contain_edge_all(self, target_module_full_name, cur_module_full_name):
+        target_list = self.get_all_name_from_graph(target_module_full_name)
+
+        if not target_list:
+            return False
+
+        for target_full_name, target_label in target_list:
+            # print(cur_module_full_name, '->', target_full_name, target_name)
+            edge = self.graphDB.add_edge(start_label='MODULE', start_name=cur_module_full_name,
+                                         relationship_type='CONTAINS', end_name=target_full_name,
+                                         params={"association_type": target_label})
+            if not edge:
+                return False
+
+        return True
+
     def build_modules_contain(self, file_full_path):
         if file_full_path in self.visited:
             return None
@@ -100,29 +142,29 @@ RETURN m.full_name as full_name
             cur_module_full_name = get_dotted_name(self.root_path, file_full_path)
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                target_module_full_name = get_module_name(file_full_path, node, self.root_path)
-                if not target_module_full_name:
-                    continue
-                for target in node.names:
-                    target_name = target.name
-                    target_full_name, target_label = self.get_full_name_from_graph(target_module_full_name, target_name)
-                    if target_full_name:
-                        # print(cur_module_full_name, '->', target_full_name, target_name)
-                        edge = self.graphDB.add_edge(start_label='MODULE', start_name=cur_module_full_name,
-                                              relationship_type='CONTAINS', end_name=target_full_name, params={"association_type": target_label})
-                    else:
-                        # continue
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            target_module_full_name = get_module_name(file_full_path, node, self.root_path)
+            if not target_module_full_name:
+                continue
+
+            for target in node.names:
+                target_name = target.name
+
+                if target_name == '*':
+                    if not self._build_modules_contain_edge_all(target_module_full_name, cur_module_full_name):
                         module_path = module_name_to_path(target_module_full_name, self.root_path)
                         file_path = os.path.join(self.root_path, module_path, '__init__.py')
                         if os.path.exists(file_path):
                             self.build_modules_contain(file_path)
-                            target_full_name, target_label = self.get_full_name_from_graph(target_module_full_name, target_name)
-                            if target_full_name:
-                                # print(cur_module_full_name, '->', target_full_name, target_name)
-                                edge = self.graphDB.add_edge(start_label='MODULE', start_name=cur_module_full_name,
-                                                             relationship_type='CONTAINS', end_name=target_full_name,
-                                                             params={"association_type": target_label})
+                    self._build_modules_contain_edge_all(target_module_full_name, cur_module_full_name)
+                else:
+                    if not self._build_modules_contain_edge(target_module_full_name, target_name ,cur_module_full_name):
+                        module_path = module_name_to_path(target_module_full_name, self.root_path)
+                        file_path = os.path.join(self.root_path, module_path, '__init__.py')
+                        if os.path.exists(file_path):
+                            self.build_modules_contain(file_path)
+                    self._build_modules_contain_edge(target_module_full_name, target_name ,cur_module_full_name)
 
     def build_inherited(self, file_full_path):
         try:
@@ -163,3 +205,4 @@ if __name__ == '__main__':
     repo_path = r'/home/lanbo/repo/test_repo'
     task_id = 'test_0621'
     ast_manage = AstManager(repo_path, task_id)
+    ast_manage.run()

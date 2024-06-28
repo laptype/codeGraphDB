@@ -109,15 +109,15 @@ if __name__ == "__main__":
     # repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/turboderp-exllama-a544085'
     # repo_path = r'/home/lanbo/cceval_pipeline/cceval/data/crosscodeeval_rawdata/open-mmlab-Multimodal-GPT-9c73e47'
     # repo_path = r'/home/lanbo/repo/sklearn'
-    task_id = 'sklearn'
+    task_id = 'test_0621'
     clear_task(task_id)
-
+    clear_task('test_0621_2')
     # 1. run shallow index
     run(repo_path, task_id, max_workers=1)
 
     # 2. run AST
-    # ast_manage = AstManager(repo_path, task_id)
-    # ast_manage.run()
-    # print(ast_manage.class_inherited)
+    ast_manage = AstManager(repo_path, task_id)
+    ast_manage.run()
+    print(ast_manage.class_inherited)
 
 

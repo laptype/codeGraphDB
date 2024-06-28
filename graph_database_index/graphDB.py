@@ -104,9 +104,12 @@ class GraphDatabaseHandler:
             self.graph.run("MATCH (n) DETACH DELETE n")
 
     def execute_query(self, query):
-        with self.lock:
-            result = self.graph.run(query)
-            return [record for record in result]
+        try:
+            with self.lock:
+                result = self.graph.run(query)
+                return [record for record in result]
+        except:
+            return ''
 
     def update_node(self, full_name, parms={}):
         with self.lock:
@@ -223,6 +226,13 @@ def extract_code_from_file(file_path, start_line, end_line, is_indent=True):
     return extracted_code
 
 def process_string(input_string, repo_path, folded_len=10, is_indent=False):
+    """
+    :param input_string: str(record)
+    :param repo_path: repo根目录，用于找到文件
+    :param folded_len: 代码折叠的行数
+    :param is_indent: 是否去除缩进，False是保留缩进
+    :return: str
+    """
     # 定义正则表达式，匹配 <CODE></CODE> 之间的内容
     pattern = re.compile(r'<CODE>(.*?)</CODE>')
     matches = pattern.findall(input_string)
@@ -237,7 +247,6 @@ def process_string(input_string, repo_path, folded_len=10, is_indent=False):
         code_snippet = extract_code_from_file(file_path, start_line, end_line, is_indent=is_indent)
 
         if len(matches) > 1 and len(code_snippet) > folded_len:
-            # 只显示前10个非空格字符
             trimmed_snippet = code_snippet
             folded_snippet = "{0}...(code folded)".format(trimmed_snippet.strip()[:folded_len])
             input_string = input_string.replace('<CODE>{}</CODE>'.format(match), folded_snippet)
